@@ -2,10 +2,60 @@
 #include<assert.h>
 #include<stdlib.h>
 #include<stdbool.h>
-#include"./parser.c"
+#include<stdint.h>
 
+typedef uint16_t mem_t[2 << 15];
+typedef uint16_t (*alu_operation_t)(uint16_t, uint16_t);
 
+#define ARR_COUNT(arr) (sizeof(arr) / sizeof((arr)[0]))
 
+enum op_code{
+  op_noop,
+  op_load,
+  op_or,
+  op_xor,
+  op_and,
+  op_not,
+  op_mov,
+  op_plus,
+  op_minus,
+};
+enum jc{
+  jc_jmp,
+  jc_eq,
+  jc_lt,
+  jc_gt,
+  jc_le,
+  jc_ge,
+};
+enum reg{
+  reg_noreg,
+  reg_a,
+  reg_d,
+  reg__a,
+  reg_pc,
+};
+struct Instruction{
+  enum op_code op;
+  enum jc jc;
+  enum reg src[2];
+  enum reg dest[3];
+  bool is_const_load;
+  uint16_t constant;
+};
+struct cpu_state{
+  uint16_t a;
+  uint16_t d;
+  uint16_t _a;
+  uint16_t pc;
+  uint16_t R;
+};
+void unreachable(){
+  printf("unreachable");
+}
+void todo(){
+  printf("todo");
+}
 void dump_instruction(struct Instruction const* ins){
   printf("jc: %d; ", ins->jc);
   printf("op: %d; ", ins->op);
@@ -30,6 +80,7 @@ uint16_t or(uint16_t v1, uint16_t v2){ return v1 | v2; }
 uint16_t xor(uint16_t v1, uint16_t v2){ return v1 ^ v2; }
 uint16_t and(uint16_t v1, uint16_t v2){ return v1 & v2; }
 uint16_t inv(uint16_t v1, uint16_t v2){ return ~v1; }
+
 void load_value_in_reg(
   struct cpu_state* cpu_state,
   mem_t mem,
@@ -81,7 +132,7 @@ void execute_alu_instruction(
 ){
   uint16_t v1 = get_value_at_reg(cpu_state, mem, &src[0]);
   uint16_t v2 = get_value_at_reg(cpu_state, mem, &src[1]);
-  printf("Executing ALU operation on %d and %d", v1, v2);
+  printf("Executing ALU operation on %d and %d\n", v1, v2);
   uint16_t result = op(v1, v2);
   load_value_in_multiple_reg(cpu_state, mem, ins->dest, result);
   load_result_in_R(cpu_state, result);
@@ -140,5 +191,76 @@ int main(void){
   struct Instruction ins = { .op=op_load, .is_const_load=1, .constant=34, .dest={reg_a} };
   execute_instruction(&ins, &cpu_state, mem);
 
+  struct Instruction ins1 = { .op=op_mov, .src={reg_a}, .dest={reg_d} };
+  execute_instruction(&ins1, &cpu_state, mem);
+
+  struct Instruction ins2 = { .op=op_load, .is_const_load=1, .constant=35, .dest={reg_a} };
+  execute_instruction(&ins2, &cpu_state, mem);
+
+  struct Instruction ins3 = { .op=op_plus, .src={reg_a, reg_d}, .dest={reg_d, reg_a} };
+  execute_instruction(&ins3, &cpu_state, mem);
+
+  dump_cpu_state(&cpu_state);
   return 0;
+}
+
+#define INST (1 << 15)
+
+#define SRC_A_S (1 << 12)
+
+#define DEST_A (1 << 10)
+#define DEST_D (1 << 9)
+#define DEST_S (1 << 8)
+
+#define OP_FLAG_U (1 << 7)
+#define OP_FLAG_P0 (1 << 6)
+#define OP_FLAG_P1 (1 << 5)
+#define OP_FLAG_ZX (1 << 4)
+#define OP_FLAG_SW (1 << 3)
+
+void (struct cpu_state* cpu_state, mem_t mem, uint16_t inst) {
+  if (~inst & INST) {
+    state->a = inst;
+    return;
+  }
+
+  uint16_t v1 = cpu_state->d;
+  uint16_t v2 = cpu_state->a;
+  if(inst & SRC_A_S) v2 = mem[cpu_state->a];
+
+  if(inst & OP_FLAG_SW){
+    uint16_t temp = v1;
+    v1 = v2;
+    v2 = temp;
+  }
+
+  if(inst & OP_FLAG_ZX){
+    v2 = 0;
+  }
+
+  uint16_t result;
+
+  if(inst & OP_FLAG_U){
+    //AU
+    if(inst & OP_FLAG_P0) v2 = 1;
+    if(inst & OP_FLAG_P1){
+      result = v1 - v2;
+    }else{
+      result = v1 + v2;
+    }
+  }else{
+    //LU
+    if((inst & OP_FLAG_P0) && (inst & OP_FLAG_P1)) result = ~v1;
+    if(!(inst & OP_FLAG_P0) && (inst & OP_FLAG_P1)) result = v1 ^ v2;
+    if((inst & OP_FLAG_P0) && !(inst & OP_FLAG_P1)) result = v1 | v2;
+    if(!(inst & OP_FLAG_P0) && !(inst & OP_FLAG_P1)) result = v1 & v2;
+  }
+
+  if (inst & DEST_A) cpu_state->a = result;
+  if (inst & DEST_D) cpu_state->d = result;
+  if (inst & DEST_S) mem[cpu_state->a] = result;
+
+  cpu_state->R = result;
+
+  jmp = todo();
 }

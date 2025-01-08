@@ -9,5 +9,6 @@ int parse(char* file_path){
   if(!file){
     return 1;
   }
+
   return 0;
 }

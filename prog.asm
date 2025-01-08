@@ -1,5 +1,5 @@
 LOAD 35
 MV A, D
 LOAD 34
-ADD A D, A
+ADD A D, A D *A
 DUMP
