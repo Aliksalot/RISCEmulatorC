@@ -344,10 +344,11 @@ void assemble_line(char tokens[MAX_TOKEN_COUNT][MAX_TOKEN_SIZE], char ins_out[16
 }
 
 void assemble(char* file_path, char* out_path){
+
   FILE *fptr;
-  FILE *outfptr;
+  FILE *fptrout;
   
-  outfptr = fopen(out_path, "w");
+  fptrout = fopen(out_path, "w");
   fptr = fopen(file_path, "r");
   char assm[MAX_FILE_SIZE][MAX_LINE_SIZE];
 
@@ -371,7 +372,7 @@ void assemble(char* file_path, char* out_path){
     assemble_line(tokens, out);
 
     printf("[INFO][assemble] assembled line: %.*s\n", 16, out);
-    fprintf(outfptr, "%.*s\n", 16, out);
+    fprintf(fptrout, "%.*s\n", 16, out);
 
     line_count ++;
   }
@@ -437,7 +438,7 @@ int main(int argc, char* argv[]){
       if(argc == 4){
         char* outpath = argv[3];
         printf("SRC: %s DEST: %s", fpath, outpath);
-        //assemble(fpath, outpath);
+        assemble(fpath, outpath);
       }else{
         assemble(fpath, "out");
       }
