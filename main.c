@@ -79,7 +79,7 @@ void print_tokens(char tokens[MAX_TOKEN_COUNT][MAX_TOKEN_SIZE]){
 
 void convertToBinary16(uint16_t num, char out[16]){
   for(int i = 15; i >= 0; i --){
-    out[15 - i] = (num >> i) % 2;
+    out[15 - i] = ((num >> i) % 2 == 0) ? '0' : '1';
   }
 }
 
@@ -95,15 +95,15 @@ void printToBinary16(uint16_t num){
 
 #define SRC_A_S (1 << 12)
 
-#define DEST_A (1 << 10)
-#define DEST_D (1 << 9)
-#define DEST_S (1 << 8)
+#define OP_FLAG_U (1 << 10)
+#define OP_FLAG_P0 (1 << 9)
+#define OP_FLAG_P1 (1 << 8)
+#define OP_FLAG_ZX (1 << 7)
+#define OP_FLAG_SW (1 << 6)
 
-#define OP_FLAG_U (1 << 7)
-#define OP_FLAG_P0 (1 << 6)
-#define OP_FLAG_P1 (1 << 5)
-#define OP_FLAG_ZX (1 << 4)
-#define OP_FLAG_SW (1 << 3)
+#define DEST_A (1 << 5)
+#define DEST_D (1 << 4)
+#define DEST_S (1 << 3)
 
 #define JMP_LE (1 << 2)
 #define JMP_EQ (1 << 1)
@@ -111,10 +111,10 @@ void printToBinary16(uint16_t num){
 
 void exec_instruction(struct cpu_state* cpu_state, mem_t mem, uint16_t inst) {
 
-  printf("[INFO][exec_instruction]:");
-  printToBinary16(inst);
+  //printf("[INFO][exec_instruction]:");
+  //printToBinary16(inst);
   if (~inst & ALU_INST) {
-    printf("[INFO][exec_instruction]: executing data instruction\n");
+    //printf("[INFO][exec_instruction]: executing data instruction\n");
     cpu_state->a = inst;
     return;
   }
@@ -124,20 +124,23 @@ void exec_instruction(struct cpu_state* cpu_state, mem_t mem, uint16_t inst) {
   if(inst & SRC_A_S) v2 = mem[cpu_state->a];
 
   if(inst & OP_FLAG_SW){
+    //printf("[INFO][exec_instruction]: Perfoming swap\n");
     uint16_t temp = v1;
     v1 = v2;
     v2 = temp;
   }
 
   if(inst & OP_FLAG_ZX){
-    v2 = 0;
+    //printf("[INFO][exec_instruction]: Perfoming zero\n");
+    v1 = 0;
   }
 
   uint16_t result;
 
+  //printf("[INFO][exec_instruction] U_FLAG=%d\n", inst & OP_FLAG_U);
   if(inst & OP_FLAG_U){
     //AU
-    printf("[INFO][exec_instruction] Arithmetic unit\n");
+    //printf("[INFO][exec_instruction] Arithmetic unit\n");
     if(inst & OP_FLAG_P0) v2 = 1;
     if(inst & OP_FLAG_P1){
       result = v1 - v2;
@@ -146,8 +149,8 @@ void exec_instruction(struct cpu_state* cpu_state, mem_t mem, uint16_t inst) {
     }
   }else{
     //LU
-    printf("[INFO][exec_instruction] Logic unit\n");
-    printf("[INFO][exec_instruction] (inst & OP_FLAG_P0): %d (inst & OP_FLAG_P0): %d", (inst & OP_FLAG_P0), (inst & OP_FLAG_P1) );
+    //printf("[INFO][exec_instruction] Logic unit\n");
+    //printf("[INFO][exec_instruction] (inst & OP_FLAG_P0): %d (inst & OP_FLAG_P0): %d\n", (inst & OP_FLAG_P0), (inst & OP_FLAG_P1) );
     if((inst & OP_FLAG_P0) && (inst & OP_FLAG_P1)) result = ~v1;
     if(!(inst & OP_FLAG_P0) && (inst & OP_FLAG_P1)) result = v1 ^ v2;
     if((inst & OP_FLAG_P0) && !(inst & OP_FLAG_P1)) result = v1 | v2;
@@ -200,7 +203,7 @@ void assemble_line(char tokens[MAX_TOKEN_COUNT][MAX_TOKEN_SIZE], char ins_out[16
     printf("[INFO][assemble_line] number_to_load: %d\n", number_to_load);
     ins_out[0] = '0';
     for(int i = 0; i <= 14; i ++){
-      ins_out[i + 1] = (number_to_load >> (15 - i)) % 2 == 0 ? '0' : '1';
+      ins_out[i + 1] = (number_to_load >> (14 - i)) % 2 == 0 ? '0' : '1';
     }
     return;
   }else{
@@ -210,23 +213,19 @@ void assemble_line(char tokens[MAX_TOKEN_COUNT][MAX_TOKEN_SIZE], char ins_out[16
     
     //Assign the 5 ALU bits
     if(!strcasecmp(tokens[0], "MOV")){
+      printf("DOING A MOV\n");
       char* src = tokens[1];
-      if(is_numeric_str(src, strlen(src))){
-        int src_num = atoi(src);
-        if(src_num < -1 || src_num > 1){
-          printf("[ERROR][assemble_line] in MOV src should be REG or -1, 0, 1");
-          exit(1);
-        }else if(src_num == 0){
-          inst = ALU_INST;
-        }else if(src_num == 1){ inst = inst | OP_FLAG_ZX | OP_FLAG_U | OP_FLAG_P0;
-        }else if(src_num == -1){ inst = inst | OP_FLAG_ZX | OP_FLAG_U | OP_FLAG_P0 | OP_FLAG_P1;
-        }else unreachable();
-      }else{
-        if(src[0] == 'A'){ inst = inst | OP_FLAG_SW | OP_FLAG_ZX;
-        }else if(src[0] == 'D'){ inst = inst | OP_FLAG_ZX;
-        }else if(src[0] == '*'){ inst = inst | OP_FLAG_ZX | OP_FLAG_SW | SRC_A_S;
-        }else unreachable();
+            if(src[0] == 'A'){ inst = inst | OP_FLAG_ZX | OP_FLAG_U;; printf("SRC A\n");
+      }else if(src[0] == 'D'){ inst = inst | OP_FLAG_ZX | OP_FLAG_SW | OP_FLAG_U; printf("SRC D\n");
+      }else if(src[0] == '*'){ inst = inst | OP_FLAG_ZX | OP_FLAG_U  | SRC_A_S;; printf("SRC *A\n");
+      }else if(src[0] == '1'){ inst = inst | OP_FLAG_U  | OP_FLAG_P0 | OP_FLAG_ZX;; printf("SRC 1\n");
+      }else if(src[0] == '-'){ inst = inst | OP_FLAG_U  | OP_FLAG_P0 | OP_FLAG_P1 | OP_FLAG_ZX;; printf("SRC -1\n");
+      }else if(src[0] == '0'){ inst = inst | OP_FLAG_ZX;printf("SRC 0\n");
+      }else {
+        unreachable();
+        printf("Couldnt interpret MOV src\n");
       }
+
       dest_start = 2;
     }else if(!strcasecmp(tokens[0], "ADD")){
       todo();
@@ -248,10 +247,13 @@ void assemble_line(char tokens[MAX_TOKEN_COUNT][MAX_TOKEN_SIZE], char ins_out[16
     bool has_jump = false;
     for(int i = dest_start; i < MAX_TOKEN_COUNT; i ++){
       if(tokens[i][0] == 'A'){
+        printf("ADDING TO DEST: A\n");
         inst = inst | DEST_A;
-      }else if(tokens[i][0] == 'D'){
+      }else if(tokens[i][0]== 'D'){
+        printf("ADDING TO DEST: D\n");
         inst = inst | DEST_D;
       }else if(tokens[i][0] == '*'){
+        printf("ADDING TO DEST: *A\n");
         inst = inst | DEST_S;
       }else if(tokens[i][0] == ';'){
         //Next token must be a jump
@@ -273,7 +275,9 @@ void assemble_line(char tokens[MAX_TOKEN_COUNT][MAX_TOKEN_SIZE], char ins_out[16
         }
       }
     }
-    printToBinary16(inst);
+
+    
+    convertToBinary16(inst, ins_out);
   }
 }
 
@@ -304,21 +308,76 @@ void assemble(char* file_path, char* out_path){
   printf("Line count: %d\n", line_count);
 }
 
-int main(void){
+uint16_t inst_to_uint16(char inst[16]){
+  uint16_t result = 0;
+  
+  for(int i = 15; i >= 0; i --){
+    result = result | (inst[i] == '1' ? (1 << (15-i)) : 0);
+  }
+  return result;
+}
 
+
+void run_program_from_file(char const* file_path){
+  FILE* fptr;
   struct cpu_state cpu_state = {};
   mem_t mem = {};
 
-  /*printToBinary16(ALU_INST);
-  exec_instruction(&cpu_state, mem, 0b0001000000000000);
-  exec_instruction(&cpu_state, mem, ALU_INST | DEST_D | OP_FLAG_SW | OP_FLAG_ZX | OP_FLAG_U);
-  exec_instruction(&cpu_state, mem, ALU_INST | DEST_A | O_FLAG_U);
-  */
-
-  //dump_cpu_state(&cpu_state);
-  //
+  char program[MAX_FILE_SIZE][MAX_LINE_SIZE] = {};
+  fptr = fopen(file_path, "r");
+  int linec = 0;
+  while(fgets(program[linec], MAX_LINE_SIZE, fptr)){
+    //printf("%s\n",program[linec]);
+    exec_instruction(&cpu_state, mem, inst_to_uint16(program[linec]));
+    linec ++;
+  }
+ 
+  dump_cpu_state(&cpu_state);
   
-  assemble("prog.asm", "out");
+}
+
+void usage(){
+  printf("Usage: \n");
+  printf("    emulate [file_path] - Acccepts a assembled instruction file to emalate\n");
+  printf("    asm [file_path] <output_path> - Acccepts a .asm file to assemble\n");
+  printf("    help - Displays usage menu\n");
+  printf("    asm-man - Displays manual for how does the assembly for this CPU work\n");
+}
+
+int main(int argc, char* argv[]){
+
+  if(argc < 2){
+    printf("Please provide arguments\n");
+    usage();
+  }else{
+    if(!strcmp(argv[1],"emulate")){
+      if(argc < 3){
+        printf("Please provide file path!\n");
+        exit(1);
+      }
+      char* fpath = argv[2];
+      run_program_from_file(fpath);
+    }else if(!strcmp(argv[1],"asm")){
+      if(argc < 3){
+        printf("Please provide file path!\n");
+        exit(1);
+      }
+
+      char* fpath = argv[2];
+      if(argc == 4){
+        char* outpath = argv[2];
+        assemble(fpath, outpath);
+      }else{
+        assemble(fpath, "out");
+      }
+
+
+    }else if(!strcmp(argv[1],"help")){
+      usage();
+    }else if(!strcmp(argv[1],"asm-man")){
+      printf("Not implemented");
+    }else{ printf("Unknown argument %s\n", argv[1]); usage(); }
+  }
 
   return 0;
 }

@@ -1,1 +1,2 @@
-MOV D A; JLT
+LOAD 15
+MOV A D
