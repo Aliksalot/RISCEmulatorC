@@ -1,0 +1,3 @@
+LOAD 15
+MOV A D
+DUMP

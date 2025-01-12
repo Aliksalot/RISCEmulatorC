@@ -223,12 +223,12 @@ void assemble_line(char tokens[MAX_TOKEN_COUNT][MAX_TOKEN_SIZE], char ins_out[16
     if(!strcasecmp(tokens[0], "MOV")){
       printf("DOING A MOV\n");
       char* src = tokens[1];
-            if(src[0] == 'A'){ inst = inst | OP_FLAG_ZX | OP_FLAG_U;; printf("SRC A\n");
-      }else if(src[0] == 'D'){ inst = inst | OP_FLAG_ZX | OP_FLAG_SW | OP_FLAG_U; printf("SRC D\n");
-      }else if(src[0] == '*'){ inst = inst | OP_FLAG_ZX | OP_FLAG_U  | SRC_A_S;; printf("SRC *A\n");
-      }else if(src[0] == '1'){ inst = inst | OP_FLAG_U  | OP_FLAG_P0 | OP_FLAG_ZX;; printf("SRC 1\n");
-      }else if(src[0] == '-'){ inst = inst | OP_FLAG_U  | OP_FLAG_P0 | OP_FLAG_P1 | OP_FLAG_ZX;; printf("SRC -1\n");
-      }else if(src[0] == '0'){ inst = inst | OP_FLAG_ZX;printf("SRC 0\n");
+            if(src[0] == 'A'){ inst = inst | OP_FLAG_ZX | OP_FLAG_U;
+      }else if(src[0] == 'D'){ inst = inst | OP_FLAG_ZX | OP_FLAG_SW | OP_FLAG_U;
+      }else if(src[0] == '*'){ inst = inst | OP_FLAG_ZX | OP_FLAG_U  | SRC_A_S;
+      }else if(src[0] == '1'){ inst = inst | OP_FLAG_U  | OP_FLAG_P0 | OP_FLAG_ZX;
+      }else if(src[0] == '-'){ inst = inst | OP_FLAG_U  | OP_FLAG_P0 | OP_FLAG_P1 | OP_FLAG_ZX;
+      }else if(src[0] == '0'){ inst = inst | OP_FLAG_ZX;
       }else {
         unreachable();
         printf("Couldnt interpret MOV src\n");
@@ -257,17 +257,58 @@ void assemble_line(char tokens[MAX_TOKEN_COUNT][MAX_TOKEN_SIZE], char ins_out[16
       }else{ printf("Invalid addition"); exit(1); }
       dest_start = 3;
     }else if(!strcasecmp(tokens[0], "SUB")){
-      todo();
-    }else if(!strcasecmp(tokens[0], "XOR")){
-      todo();
+      printf("DOING A SUB\n");
+      char token1 = tokens[1][0];
+      char token2 = tokens[2][0];
+      if( (token1 == 'A' || token1 == '*') && token2 == 'D'){
+
+        inst = inst | OP_FLAG_U | OP_FLAG_P1 | OP_FLAG_SW;
+
+      }else if( (token1 == 'A' || token1 == '*') && token2 == '1'){
+
+        inst = inst | OP_FLAG_U | OP_FLAG_P0 | OP_FLAG_P1 | OP_FLAG_SW;
+
+      }else if( token1 == 'D' && token2 == '1'){
+
+        inst = inst | OP_FLAG_U | OP_FLAG_P0 | OP_FLAG_P1;
+
+      }else if( token1 == 'D' && (token2 == 'A' || token2 == '*') ){
+
+        inst = inst | OP_FLAG_U | OP_FLAG_P1;
+
+      }else { printf("Invalid subtraction"); exit(1); }
+
+      if(token1 == '*' || token2 == '*') inst = inst | SRC_A_S;
+
+      dest_start = 3;
     }else if(!strcasecmp(tokens[0], "AND")){
-      todo();
+      printf("DOING A AND\n");
+      if(
+        ((tokens[1][0] == 'A' || tokens[1][0] == '*') && tokens[2][0] == 'D') ||
+        ((tokens[2][0] == 'A' || tokens[2][0] == '*') && tokens[1][0] == 'D')
+      ){
+        if(tokens[1][0] == '*' || tokens[2][0] == '*') inst = inst | SRC_A_S;
+      }else{ printf("Invalid Bitwise AND"); exit(1); }
+      dest_start = 3;
     }else if(!strcasecmp(tokens[0], "OR")){
-      todo();
+      printf("DOING A OR\n");
+      if(
+        ((tokens[1][0] == 'A' || tokens[1][0] == '*') && tokens[2][0] == 'D') ||
+        ((tokens[2][0] == 'A' || tokens[2][0] == '*') && tokens[1][0] == 'D')
+      ){
+        if(tokens[1][0] == '*' || tokens[2][0] == '*') inst = inst | SRC_A_S;
+        inst = inst | OP_FLAG_P0;
+      }else{ printf("Invalid Bitwise OR"); exit(1); }
+      dest_start = 3;
     }else if(!strcasecmp(tokens[0], "INV")){
-      todo();
+            if(tokens[1][0] == 'A' || tokens[1][0] == '*'){ inst = inst | OP_FLAG_P0 | OP_FLAG_P1 | OP_FLAG_SW;
+      }else if(tokens[1][0] == 'D') { inst = inst | OP_FLAG_P0 | OP_FLAG_P1;
+      }else { printf("Invalid Bitwise INV"); exit(1); }
+      dest_start = 2;
     }else{
       unreachable();
+      printf("Unknown token %s\n", tokens[0]);
+      return;
     }
 
     //Assign the destination bits and JC
@@ -316,6 +357,16 @@ void assemble(char* file_path, char* out_path){
     char tokens[MAX_TOKEN_COUNT][MAX_TOKEN_SIZE] = {};
     parse_line(assm[line_count], tokens);
    
+    //One last token sanitization
+    int tokenc = 0;
+    for(int i = 0; i < MAX_TOKEN_COUNT; i ++){
+      if(tokens[i][0] == 0 || tokens[i][0] == 32){
+        break;
+      }
+      tokenc ++;
+    }
+    if(tokenc == 0) continue;
+    //
     char out[16] = {};
     assemble_line(tokens, out);
 
@@ -324,7 +375,6 @@ void assemble(char* file_path, char* out_path){
 
     line_count ++;
   }
-  line_count --;
 
   printf("Line count: %d\n", line_count);
 }
@@ -385,8 +435,9 @@ int main(int argc, char* argv[]){
 
       char* fpath = argv[2];
       if(argc == 4){
-        char* outpath = argv[2];
-        assemble(fpath, outpath);
+        char* outpath = argv[3];
+        printf("SRC: %s DEST: %s", fpath, outpath);
+        //assemble(fpath, outpath);
       }else{
         assemble(fpath, "out");
       }

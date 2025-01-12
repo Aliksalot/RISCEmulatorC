@@ -1,0 +1,5 @@
+LOAD 3
+MOV A D
+LOAD 1 
+AND A D D
+DUMP

@@ -1,0 +1,6 @@
+LOAD 100
+MV A D
+LOAD 31
+SUB D A A
+DUMP
+
