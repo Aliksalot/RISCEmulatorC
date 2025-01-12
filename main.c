@@ -27,7 +27,6 @@ enum op{
 struct cpu_state{
   uint16_t a;
   uint16_t d;
-  uint16_t _a;
   uint16_t pc;
   uint16_t R;
 };
@@ -54,10 +53,10 @@ bool is_alpha_str(char* str, int charc){
   }
   return true;
 }
-void dump_cpu_state(struct cpu_state const* cpu_state){
+void dump_cpu_state(struct cpu_state const* cpu_state, mem_t mem){
   printf("a: %d\n", cpu_state->a);
   printf("d: %d\n", cpu_state->d);
-  printf("_a: %d\n", cpu_state->_a);
+  printf("_a: %d\n", mem[cpu_state->a]);
   printf("pc: %d\n", cpu_state->pc);
   printf("R: %d\n", cpu_state->R);
 }
@@ -92,6 +91,7 @@ void printToBinary16(uint16_t num){
 }
 
 #define ALU_INST (1 << 15)
+#define OP_DUMP (1 << 14)
 
 #define SRC_A_S (1 << 12)
 
@@ -113,6 +113,10 @@ void exec_instruction(struct cpu_state* cpu_state, mem_t mem, uint16_t inst) {
 
   //printf("[INFO][exec_instruction]:");
   //printToBinary16(inst);
+  if ( inst & OP_DUMP){
+    dump_cpu_state(cpu_state, mem);
+    return;
+  }
   if (~inst & ALU_INST) {
     //printf("[INFO][exec_instruction]: executing data instruction\n");
     cpu_state->a = inst;
@@ -158,9 +162,9 @@ void exec_instruction(struct cpu_state* cpu_state, mem_t mem, uint16_t inst) {
   }
 
 
-  if (inst & DEST_A) cpu_state->a = result;
+  if (inst & DEST_A) cpu_state->a = result; 
   if (inst & DEST_D) cpu_state->d = result;
-  if (inst & DEST_S) mem[cpu_state->a] = result;
+  if (inst & DEST_S) mem[cpu_state->a] = result; 
 
   cpu_state->R = result;
 
@@ -206,6 +210,10 @@ void assemble_line(char tokens[MAX_TOKEN_COUNT][MAX_TOKEN_SIZE], char ins_out[16
       ins_out[i + 1] = (number_to_load >> (14 - i)) % 2 == 0 ? '0' : '1';
     }
     return;
+  }else if(!strcasecmp(tokens[0], "DUMP")){
+    uint16_t inst = OP_DUMP;
+    convertToBinary16(inst, ins_out);
+    return;
   }else{
 
     uint16_t inst = ALU_INST;
@@ -228,7 +236,26 @@ void assemble_line(char tokens[MAX_TOKEN_COUNT][MAX_TOKEN_SIZE], char ins_out[16
 
       dest_start = 2;
     }else if(!strcasecmp(tokens[0], "ADD")){
-      todo();
+      printf("DOING A ADD\n");
+      if(
+        ((tokens[1][0] == 'A' || tokens[1][0] == '*') && tokens[2][0] == 'D') ||
+        ((tokens[2][0] == 'A' || tokens[2][0] == '*') && tokens[1][0] == 'D')
+      ){
+        if(tokens[1][0] == '*' || tokens[2][0] == '*') inst = inst | SRC_A_S;
+        inst = inst | OP_FLAG_U;
+      }else if(
+        ((tokens[1][0] == 'A' || tokens[1][0] == '*') && tokens[2][0] == '1') ||
+        ((tokens[2][0] == 'A' || tokens[2][0] == '*') && tokens[1][0] == '1')
+      ){
+        if(tokens[1][0] == '*' || tokens[2][0] == '*') inst = inst | SRC_A_S;
+        inst = inst | OP_FLAG_U | OP_FLAG_P0 | OP_FLAG_SW;
+      }else if(
+        (tokens[1][0] == 'D' && tokens[2][0] == '1') ||
+        (tokens[2][0] == 'D' && tokens[1][0] == '1')
+      ){
+        inst = inst | OP_FLAG_U | OP_FLAG_P0;
+      }else{ printf("Invalid addition"); exit(1); }
+      dest_start = 3;
     }else if(!strcasecmp(tokens[0], "SUB")){
       todo();
     }else if(!strcasecmp(tokens[0], "XOR")){
@@ -246,15 +273,9 @@ void assemble_line(char tokens[MAX_TOKEN_COUNT][MAX_TOKEN_SIZE], char ins_out[16
     //Assign the destination bits and JC
     bool has_jump = false;
     for(int i = dest_start; i < MAX_TOKEN_COUNT; i ++){
-      if(tokens[i][0] == 'A'){
-        printf("ADDING TO DEST: A\n");
-        inst = inst | DEST_A;
-      }else if(tokens[i][0]== 'D'){
-        printf("ADDING TO DEST: D\n");
-        inst = inst | DEST_D;
-      }else if(tokens[i][0] == '*'){
-        printf("ADDING TO DEST: *A\n");
-        inst = inst | DEST_S;
+      if(tokens[i][0] == 'A'){ inst = inst | DEST_A;
+      }else if(tokens[i][0]== 'D'){ inst = inst | DEST_D;
+      }else if(tokens[i][0] == '*'){ inst = inst | DEST_S;
       }else if(tokens[i][0] == ';'){
         //Next token must be a jump
         if(i + 1 >= MAX_TOKEN_COUNT){
@@ -332,7 +353,6 @@ void run_program_from_file(char const* file_path){
     linec ++;
   }
  
-  dump_cpu_state(&cpu_state);
   
 }
 
