@@ -21,8 +21,10 @@ One observation you can make is that the 15th and 14th bit are being unused.
 I made them so that:
 
 #### if 15 is high
+
 Processor goes into dump mode and dumps A reg into std out as a DIGIT
-1f 14 is high as well it tries to dump it as a char from ASCII
+
+If 14 is high as well it tries to dump it as a char from ASCII
 
 ## Here are all the Instructions we can use
 
@@ -42,10 +44,12 @@ Processor goes into dump mode and dumps A reg into std out as a DIGIT
 
 #### Jumps look at result from operation of <u>Current instruction</u>. So if you do 
 ```
-ADD A D
+ADD A D D
 JGE
 ```
-#### It wont look at result from first instruction, but of result of instruction with no params which i think is bitwise ```AND``` of A and D. To have expeted behavior you can do ```MOV D D; JGE```
+#### It wont look at result from first instruction, but of result of instruction with no params which i think is bitwise ```AND``` of A and D.
+
+#### To have expeted behavior you can do ```MOV D D; JGE```
 
 ```JMP``` - Unconditional
 
