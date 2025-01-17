@@ -5,6 +5,7 @@
 #include<stdint.h>
 #include<strings.h>
 #include<math.h>
+#include<ctype.h>
 
 typedef uint16_t mem_t[2 << 15];
 
@@ -54,7 +55,7 @@ bool is_alpha_str(char* str, int charc){
   return true;
 }
 void dump_a_reg(struct cpu_state const* cpu_state){
-  printf("%d\n", cpu_state->a);
+  printf("%c\n", cpu_state->a);
 }
 void dump_cpu_state(struct cpu_state const* cpu_state, mem_t mem){
   printf("a: %d\n", cpu_state->a);
@@ -94,7 +95,9 @@ void printToBinary16(uint16_t num){
 }
 
 #define ALU_INST (1 << 15)
+
 #define OP_DUMP (1 << 14)
+#define OP_DUMP_TYPE (1 << 13)
 
 #define SRC_A_S (1 << 12)
 
@@ -117,13 +120,23 @@ uint16_t exe_taxi_do_address(struct cpu_state* cpu_state, mem_t mem, uint16_t in
 
   //printf("[INFO][exec_instruction]:");
   //printToBinary16(inst);
-  if ( inst & OP_DUMP){
-    dump_a_reg(cpu_state);
-    return -1;
-  }
   if (~inst & ALU_INST) {
     //printf("[INFO][exec_instruction]: executing data instruction\n");
     cpu_state->a = inst;
+    return -1;
+  }
+
+  if ( inst & OP_DUMP){
+    //tries to print a reg as a ascii if OP_DUMP_TYPE === 1 if possible, otherwise prints it as a num
+    if(inst & OP_DUMP_TYPE){
+      if(cpu_state->a >= 0 && cpu_state->a < 128){
+        printf("%c", (char)cpu_state->a);
+      }else{
+        printf("%d", cpu_state->a);
+      }
+    }else{
+      printf("%d", cpu_state->a);
+    }
     return -1;
   }
 
@@ -223,9 +236,16 @@ void assemble_line(char tokens[MAX_TOKEN_COUNT][MAX_TOKEN_SIZE], char ins_out[16
       ins_out[i + 1] = (number_to_load >> (14 - i)) % 2 == 0 ? '0' : '1';
     }
     return;
-  }else if(!strcasecmp(tokens[0], "DUMP")){
-    uint16_t inst = OP_DUMP;
+  }else if(!strcasecmp(tokens[0], "DUMPC")){
+    printf("[INFO][assemble_line] Doing DUMPC\n");
+    uint16_t inst = OP_DUMP | OP_DUMP_TYPE | ALU_INST;
     convertToBinary16(inst, ins_out);
+    return;
+  }else if(!strcasecmp(tokens[0], "DUMPD")){
+    printf("[INFO][assemble_line] Doing DUMPD\n");
+    uint16_t inst = OP_DUMP | ALU_INST;
+    convertToBinary16(inst, ins_out);
+    return;
   }else{
 
     uint16_t inst = ALU_INST;
@@ -435,8 +455,8 @@ void run_program_from_file(char const* file_path){
 
 void usage(){
   printf("Usage: \n");
-  printf("    emulate [file_path] - Acccepts a assembled instruction file to emalate\n");
-  printf("    asm [file_path] <output_path> - Acccepts a .asm file to assemble\n");
+  printf("    emulate <file_path> - Acccepts a assembled instruction file to emalate\n");
+  printf("    asm <file_path> [output_path] - Acccepts a .asm file to assemble\n");
   printf("    help - Displays usage menu\n");
   printf("    asm-man - Displays manual for how does the assembly for this CPU work\n");
 }
