@@ -27,11 +27,15 @@ Processor goes into dump mode and dumps A reg into std out as a DIGIT
 ## Here are all the Instructions we can use
 
 ### Memory
+
 ```LOAD <uint16_t>``` - Loads number in A reg
+
 ```MOV <src-reg> <A/*A/D dest-regs>``` - Copies value from src-reg to all registers in dest. Example: ```MOV A A D *A```
 
 ### Dump
+
 ```DUMPC``` - explained above
+
 ```DUMPD``` - explained above
 
 ### Jumps
@@ -44,8 +48,11 @@ JGE
 #### It wont look at result from first instruction, but of result of instruction with no params which i think is bitwise ```AND``` of A and D. To have expeted behavior you can do ```MOV D D; JGE```
 
 ```JMP``` - Unconditional
+
 ```JGE``` - Jump greater or equal
+
 ```JGT``` - Jump greater
+
 ```JEQ``` - Jump equal
 
 ### ALU instructions
@@ -57,12 +64,17 @@ JGE
 #### Instructions
 
 ```ADD <src-reg1> <src-reg2> <A/*A/D dest-regs>``` - sums up ```src-reg1``` and ```src-reg2``` and copies the result in ```dest-regs```
+
 ```SUB <src-reg1> <src-reg2> <A/*A/D dest-regs>``` - subtracts from ```src-reg1``` ```src-reg2``` and copies the result in ```dest-regs```
+
 ```AND <src-reg1> <src-reg2> <A/*A/D dest-regs>``` - performs bitwise and on ```src-reg1``` and ```src-reg2``` and copies the result in ```dest-regs```
+
 ```OR <src-reg1> <src-reg2> <A/*A/D dest-regs>``` - performs bitwise and on ```src-reg1``` or ```src-reg2``` and copies the result in ```dest-regs```
+
 ```INV <src-reg> <A/*A/D dest-regs>``` - performs bitwise inversion on ```src-reg``` and copies the result in ```dest-regs```
 
 ## Compile
+
 Use whatever compiler you want on ```main.c```
 
 ## Usage - Assemble
