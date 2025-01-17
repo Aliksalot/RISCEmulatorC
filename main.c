@@ -53,6 +53,9 @@ bool is_alpha_str(char* str, int charc){
   }
   return true;
 }
+void dump_a_reg(struct cpu_state const* cpu_state){
+  printf("%d\n", cpu_state->a);
+}
 void dump_cpu_state(struct cpu_state const* cpu_state, mem_t mem){
   printf("a: %d\n", cpu_state->a);
   printf("d: %d\n", cpu_state->d);
@@ -109,18 +112,19 @@ void printToBinary16(uint16_t num){
 #define JMP_EQ (1 << 1)
 #define JMP_GR (1 << 0)
 
-void exec_instruction(struct cpu_state* cpu_state, mem_t mem, uint16_t inst) {
+//-1 to continue or positive number to jump
+uint16_t exe_taxi_do_address(struct cpu_state* cpu_state, mem_t mem, uint16_t inst) {
 
   //printf("[INFO][exec_instruction]:");
   //printToBinary16(inst);
   if ( inst & OP_DUMP){
-    dump_cpu_state(cpu_state, mem);
-    return;
+    dump_a_reg(cpu_state);
+    return -1;
   }
   if (~inst & ALU_INST) {
     //printf("[INFO][exec_instruction]: executing data instruction\n");
     cpu_state->a = inst;
-    return;
+    return -1;
   }
 
   uint16_t v1 = cpu_state->d;
@@ -168,8 +172,17 @@ void exec_instruction(struct cpu_state* cpu_state, mem_t mem, uint16_t inst) {
 
   cpu_state->R = result;
 
-  //jmp
-  todo();
+  bool perform_jump = false;
+
+
+  //printf("EQ %d LE %d GR %d R %d\n", inst & JMP_EQ, inst & JMP_LE, inst & JMP_GR, cpu_state->R);
+  if(inst & JMP_EQ) perform_jump = cpu_state->R == 0 || perform_jump;
+  if(inst & JMP_LE) perform_jump = cpu_state->R < 0 || perform_jump;
+  if(inst & JMP_GR) perform_jump = cpu_state->R > 0 || perform_jump;
+
+  if(perform_jump) return cpu_state->a;
+  
+  return -1;
 }
 
 //Gets line, returns TOKENS
@@ -213,7 +226,6 @@ void assemble_line(char tokens[MAX_TOKEN_COUNT][MAX_TOKEN_SIZE], char ins_out[16
   }else if(!strcasecmp(tokens[0], "DUMP")){
     uint16_t inst = OP_DUMP;
     convertToBinary16(inst, ins_out);
-    return;
   }else{
 
     uint16_t inst = ALU_INST;
@@ -260,23 +272,19 @@ void assemble_line(char tokens[MAX_TOKEN_COUNT][MAX_TOKEN_SIZE], char ins_out[16
       printf("DOING A SUB\n");
       char token1 = tokens[1][0];
       char token2 = tokens[2][0];
+
       if( (token1 == 'A' || token1 == '*') && token2 == 'D'){
-
         inst = inst | OP_FLAG_U | OP_FLAG_P1 | OP_FLAG_SW;
-
       }else if( (token1 == 'A' || token1 == '*') && token2 == '1'){
-
         inst = inst | OP_FLAG_U | OP_FLAG_P0 | OP_FLAG_P1 | OP_FLAG_SW;
-
       }else if( token1 == 'D' && token2 == '1'){
-
         inst = inst | OP_FLAG_U | OP_FLAG_P0 | OP_FLAG_P1;
-
       }else if( token1 == 'D' && (token2 == 'A' || token2 == '*') ){
-
         inst = inst | OP_FLAG_U | OP_FLAG_P1;
-
-      }else { printf("Invalid subtraction"); exit(1); }
+      }else {
+        printf("Invalid subtraction");
+        exit(1); 
+      }
 
       if(token1 == '*' || token2 == '*') inst = inst | SRC_A_S;
 
@@ -305,8 +313,19 @@ void assemble_line(char tokens[MAX_TOKEN_COUNT][MAX_TOKEN_SIZE], char ins_out[16
       }else if(tokens[1][0] == 'D') { inst = inst | OP_FLAG_P0 | OP_FLAG_P1;
       }else { printf("Invalid Bitwise INV"); exit(1); }
       dest_start = 2;
-    }else{
-      unreachable();
+    }else if(!strcasecmp(tokens[0], "JMP")){
+      inst = inst | JMP_EQ | JMP_LE | JMP_GR;
+      convertToBinary16(inst, ins_out); return;
+    }else if(!strcasecmp(tokens[0], "JGE")){
+      inst = inst | JMP_EQ | JMP_GR;
+      convertToBinary16(inst, ins_out); return;
+    }else if(!strcasecmp(tokens[0], "JGT")){
+      inst = inst | JMP_GR;
+      convertToBinary16(inst, ins_out); return;
+    }else if(!strcasecmp(tokens[0], "JEQ")){
+      inst = inst | JMP_EQ;
+      convertToBinary16(inst, ins_out); return;
+    }else{                                  
       printf("Unknown token %s\n", tokens[0]);
       return;
     }
@@ -337,7 +356,6 @@ void assemble_line(char tokens[MAX_TOKEN_COUNT][MAX_TOKEN_SIZE], char ins_out[16
         }
       }
     }
-
     
     convertToBinary16(inst, ins_out);
   }
@@ -386,9 +404,9 @@ uint16_t inst_to_uint16(char inst[16]){
   for(int i = 15; i >= 0; i --){
     result = result | (inst[i] == '1' ? (1 << (15-i)) : 0);
   }
+  
   return result;
 }
-
 
 void run_program_from_file(char const* file_path){
   FILE* fptr;
@@ -399,12 +417,20 @@ void run_program_from_file(char const* file_path){
   fptr = fopen(file_path, "r");
   int linec = 0;
   while(fgets(program[linec], MAX_LINE_SIZE, fptr)){
-    //printf("%s\n",program[linec]);
-    exec_instruction(&cpu_state, mem, inst_to_uint16(program[linec]));
     linec ++;
   }
- 
-  
+
+  int curr_inst = 0;
+  while(curr_inst < linec){
+    //printf("Curr inst: %d, instruction count: %d\n", curr_inst, linec);
+    int jump_ad = exe_taxi_do_address(&cpu_state, mem, inst_to_uint16(program[curr_inst]));
+    if(jump_ad != 65535){
+      //printf("EXECUTING JUMP TO %d\n", jump_ad);
+      curr_inst = jump_ad;
+    }else{
+      curr_inst ++;
+    }
+  }
 }
 
 void usage(){
