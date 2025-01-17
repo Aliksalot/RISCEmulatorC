@@ -79,11 +79,13 @@ Use whatever compiler you want on ```main.c```
 
 ## Usage - Assemble
 
-You can assemble using ./<program> asm <file-path> \[dest-path\]
+You can assemble using ```./<program> asm <file-path> [dest-path]```
 
 ## Usage - Emulate
 
-You can emulate the then assembled file by doing ./<progra> emulate <file-path>
+You can emulate the then assembled file by doing ```./<progra> emulate <file-path>```
+
+### You can do ```./<program> help``` To see the manual
 
 
 
